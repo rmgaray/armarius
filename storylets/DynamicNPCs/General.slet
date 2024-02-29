@@ -1,0 +1,7 @@
+@ module General
+
+@@@
+system General
+provides inputs
+	immediate: bool
+@@@

@@ -1,0 +1,132 @@
+@ module NPC
+
+> Note: All Armarius modules should have a `module` declaration as the first
+> line.
+
+# NPC Module
+
+> Note: This is an advanced example, made to showcase most of thhe Armarius
+> syntax. Not the best introduction to the language.
+
+## Introduction
+
+Here we can find the `NPC` storylet (a singleton storylet) and its associated
+system, `NPCCreation`. We can also find the archetype of any storylet that
+wants to trigger an update of an `NPC`: `NPCUpdate`.
+
+## Description
+
+`NPC` is a parameterized paragraph that describes the state of an NPC, taking
+into account the NPC's attributes, the most recent change to the NPC and its
+relationship with the player character.
+
+## Implementation
+
+### NPCCreation
+
+The NPC storylet is initialized by this game system.
+
+> Note: the syntax for `system`, `storylet` and `archetype` uses blocks
+> delimited by `@@@`.
+
+@@@
+system NPCCreation
+provides
+    id: number
+    name: text
+    moralAlignment: "Evil" | "Neutral" | "Good"
+    characterStanding: number
+@@@
+
+### NPC Storylet
+
+`NPC` is a singleton storylet. It preserves its identity throughout the game and
+accumulates changes due to different storylets that it references. In order to
+preserve its uniqueness, any update should consume the previous instance of the
+storylet. The NPCCreation system should also provide unique `id`s.
+
+Since these updates should occur immediately after an update storylet is instantiated,
+the NPC storylet checks that the `General.immediate` system input is `true`.
+
+@@@
+storylet NPC
+provides
+	outputs of NPCCreation
+	latestUpdate: text_interp
+uses
+	builtin tick
+	any of
+		#update
+			unique !storylet NPC(id) as oldNpc
+			unique storylet NPCUpdate(id) as update
+			system General(immediate = true)
+		#creation
+			system NPCCreation
+@@@
+
+Now we define the outputs based on the two input sets, `#update` and `#creation`.
+
+> Note: syntax for `case`, `inherit`, `match` and `out` is line based.
+> Since indentation is not used, `case`, `match` and `out` require start/end
+> delimiters.
+
+@ case #update
+
+We make sure to preserve the identity of the character with each update.
+
+@ inherit oldNpc(id, name, moralAlignment)
+
+The standing can either improve or worsen
+
+@ out characterStanding
+$expr(oldNpc.characterStanding + update.characterStandingDelta)
+@ end out
+
+And we store a phrase containing an explanation for the latest change.
+
+@ out latestUpdate matching oldNpc.moralAlignment
+
+@ if "Evil"
+
+$(name), another burden. She usually schemes against you. She is $(update.isX) because of $(update.becauseOfX).
+
+@ if "Neutral"
+
+$(name) is an acquaintance of yours. She is $(update.isX) because of $(update.becauseOfX).
+
+@ if "Good"
+
+Your good friend $(name). She is $(update.isX) because of $(update.becauseOfX).
+
+@ end out
+@ end case
+
+### Creation
+
+@ case #creation
+
+When creating an NPC, we just take the outputs from the NPCCreation system.
+
+@ inherit update(id, name, moralAlignment, characterStanding)
+
+And we initialize the `characterStanding` to zero.
+
+@ out characterStanding
+$expr(0)
+@ end out
+
+@ end case
+
+
+## NPC update archetype
+
+These are the storylets that the NPC storylet may reference to trigger an update.
+
+@@@
+archetype NPCUpdate
+provides
+	characterStandingDelta: number
+    isX: text
+	becauseOfX: text
+    id: number
+@@@
